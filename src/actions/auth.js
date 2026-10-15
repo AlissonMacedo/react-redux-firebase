@@ -37,19 +37,20 @@ export function unWatchUserProfile(firebase) {
     authUid,
     config: { userProfile, useFirestoreForProfile }
   } = firebase._
-  if (firebase._.profileWatch) {
-    if (useFirestoreForProfile && firebase.firestore) {
-      // Call profile onSnapshot unsubscribe stored on profileWatch
-      firebase._.profileWatch()
-    } else {
-      firebase
-        .database()
-        .ref()
-        .child(`${userProfile}/${authUid}`)
-        .off('value', firebase._.profileWatch)
-    }
-    firebase._.profileWatch = null
+  if (!firebase._.profileWatch) {
+    return
   }
+  if (useFirestoreForProfile && firebase.firestore) {
+    // Call profile onSnapshot unsubscribe stored on profileWatch
+    firebase._.profileWatch()
+  } else if (userProfile && firebase.database) {
+    firebase
+      .database()
+      .ref()
+      .child(`${userProfile}/${authUid}`)
+      .off('value', firebase._.profileWatch)
+  }
+  firebase._.profileWatch = null
 }
 
 /**
@@ -210,26 +211,29 @@ export const watchUserProfile = (dispatch, firebase) => {
         .firestore()
         .collection(userProfile)
         .doc(authUid)
-        .onSnapshot((userProfileSnap) => {
-          return enableClaims
-            ? firebase
-                .auth()
-                .currentUser.getIdTokenResult(true)
-                .then((token) =>
-                  handleProfileWatchResponse(
-                    dispatch,
-                    firebase,
-                    userProfileSnap,
-                    token
+        .onSnapshot(
+          (userProfileSnap) => {
+            return enableClaims
+              ? firebase
+                  .auth()
+                  .currentUser.getIdTokenResult(true)
+                  .then((token) =>
+                    handleProfileWatchResponse(
+                      dispatch,
+                      firebase,
+                      userProfileSnap,
+                      token
+                    )
                   )
+              : handleProfileWatchResponse(
+                  dispatch,
+                  firebase,
+                  userProfileSnap,
+                  null
                 )
-            : handleProfileWatchResponse(
-                dispatch,
-                firebase,
-                userProfileSnap,
-                null
-              )
-        }, createProfileWatchErrorHandler(dispatch, firebase))
+          },
+          createProfileWatchErrorHandler(dispatch, firebase)
+        )
     } else if (firebase.database) {
       firebase._.profileWatch = firebase // eslint-disable-line no-param-reassign
         .database()
@@ -264,6 +268,16 @@ export const watchUserProfile = (dispatch, firebase) => {
         'Real Time Database or Firestore must be included to enable user profile'
       )
     }
+  } else if (enableClaims) {
+    firebase._.profileWatch = firebase
+      .auth()
+      .currentUser.getIdTokenResult(true)
+      .then((token) => {
+        dispatch({
+          type: actionTypes.SET_PROFILE,
+          profile: { token }
+        })
+      })
   }
 }
 
@@ -324,8 +338,8 @@ export const createUserProfile = (dispatch, firebase, userData, profile) => {
               ? userData.toJSON()
               : userData
             : userData.user.toJSON
-            ? userData.user.toJSON()
-            : userData.user
+              ? userData.user.toJSON()
+              : userData.user
           // Remove unnecessary auth params (configurable) and preserve types of timestamps
           newProfile = {
             ...omit(userDataObject, config.keysToRemoveFromAuth),
@@ -534,7 +548,8 @@ export const login = (dispatch, firebase, credentials) => {
       if (
         [
           'signInWithEmailAndPassword',
-          'signInAndRetrieveDataWithEmailAndPassword'
+          'signInAndRetrieveDataWithEmailAndPassword',
+          'signInWithEmailLink'
         ].includes(method)
       ) {
         return { user: userData }
@@ -738,10 +753,10 @@ export const resetPassword = (dispatch, firebase, email) => {
       if (err) {
         switch (err.code) {
           case 'auth/user-not-found':
-            dispatchLoginError(
-              dispatch,
-              new Error('The specified user account does not exist.')
-            )
+            dispatchLoginError(dispatch, {
+              ...err,
+              message: 'The specified user account does not exist.'
+            })
             break
           default:
             dispatchLoginError(dispatch, err)
@@ -813,6 +828,27 @@ export const verifyPasswordResetCode = (dispatch, firebase, code) => {
   return firebase
     .auth()
     .verifyPasswordResetCode(code)
+    .catch((err) => {
+      if (err) {
+        dispatchLoginError(dispatch, err)
+      }
+      return Promise.reject(err)
+    })
+}
+
+/**
+ * Apply a verification code sent via email or other mechanism
+ * @param {Function} dispatch - Action dispatch function
+ * @param {object} firebase - Internal firebase object
+ * @param {string} code - Verification code
+ * @returns {Promise} Resolves after applying verification code
+ * @private
+ */
+export const applyActionCode = (dispatch, firebase, code) => {
+  dispatchLoginError(dispatch, null)
+  return firebase
+    .auth()
+    .applyActionCode(code)
     .catch((err) => {
       if (err) {
         dispatchLoginError(dispatch, err)

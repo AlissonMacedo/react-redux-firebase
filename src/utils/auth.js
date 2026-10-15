@@ -99,7 +99,8 @@ export function getLoginMethodAndParams(firebase, credentials) {
     scopes,
     phoneNumber,
     applicationVerifier,
-    credential
+    credential,
+    emailLink
   } = credentials
   // Credential Auth
   if (credential) {
@@ -158,6 +159,11 @@ export function getLoginMethodAndParams(firebase, credentials) {
     }
   }
 
+  // Passwordless sign-in
+  if (emailLink && email) {
+    return { method: 'signInWithEmailLink', params: [email, emailLink] }
+  }
+
   // Check for new sign in method (see #484 for more info)
   // Note: usage of signInAndRetrieveDataWithEmailAndPassword is now a fallback since it is deprecated (see #484 for more info)
   if (!firebase.auth().signInWithEmailAndPassword) {
@@ -199,8 +205,8 @@ export function getReauthenticateMethodAndParams(firebase, credentials) {
   // Credential Auth
   if (credential) {
     // Attempt to use signInAndRetrieveDataWithCredential if it exists (see #467 for more info)
-    const credentialAuth = firebase.auth()
-      .reauthenticateAndRetrieveDataWithCredential
+    const credentialAuth =
+      firebase.auth().reauthenticateAndRetrieveDataWithCredential
 
     if (credentialAuth) {
       return {

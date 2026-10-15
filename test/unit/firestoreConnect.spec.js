@@ -11,11 +11,11 @@ const withFirestoreConnect = firestoreConnect((props) => [
 
 describe('firestoreConnect', () => {
   it('should render if Firestore does not exist', () => {
-    const { component } = createContainer({
+    const { leaf } = createContainer({
       withFirestore: false,
       hoc: withFirestoreConnect
     })
-    expect(component).to.have.lengthOf(1)
+    expect(leaf.prop('firebase')).to.exist
   })
 
   // it('disables watchers on unmount', () => {
@@ -99,5 +99,26 @@ describe('firestoreConnect', () => {
   it('sets WrappedComponent static as component which was wrapped', () => {
     const containerPrime = firestoreConnect()(TestLeaf)
     expect(containerPrime.wrappedComponent).to.equal(TestLeaf)
+  })
+})
+
+describe('firestoreConnect in StrictMode', () => {
+  it('leaves watchers active after StrictMode remounts', async () => {
+    const { dispatch } = createContainer({
+      hoc: withFirestoreConnect,
+      strict: true
+    })
+    await sleep()
+    const listenerActions = filter(
+      dispatch.args,
+      (arg) =>
+        /@@reduxFirestore\/(UN)?SET_LISTENER/.test(arg[0].type) &&
+        arg[0].meta &&
+        arg[0].meta.collection === 'test'
+    )
+    expect(listenerActions).to.not.be.empty
+    expect(listenerActions[listenerActions.length - 1][0].type).to.equal(
+      '@@reduxFirestore/SET_LISTENER'
+    )
   })
 })

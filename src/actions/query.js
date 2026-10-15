@@ -26,15 +26,8 @@ export function watchEvent(firebase, dispatch, options) {
   if (!firebase.database || typeof firebase.database !== 'function') {
     throw new Error('Firebase database is required to create watchers')
   }
-  const {
-    type,
-    path,
-    populates,
-    queryParams,
-    queryId,
-    isQuery,
-    storeAs
-  } = options
+  const { type, path, populates, queryParams, queryId, isQuery, storeAs } =
+    options
   const {
     config: { logErrors }
   } = firebase._
@@ -50,6 +43,10 @@ export function watchEvent(firebase, dispatch, options) {
   }
 
   setWatcher(firebase, dispatch, type, watchPath, id)
+
+  if (counter > 0) {
+    return
+  }
 
   if (type === 'first_child') {
     return firebase
@@ -218,7 +215,7 @@ export function watchEvents(firebase, dispatch, events) {
  * @param {Array} events - List of events for which to remove watchers
  */
 export function unWatchEvents(firebase, dispatch, events) {
-  events.forEach((event) => unWatchEvent(firebase, dispatch, event))
+  events?.forEach((event) => unWatchEvent(firebase, dispatch, event))
 }
 
 /**

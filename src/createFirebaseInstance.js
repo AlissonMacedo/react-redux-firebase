@@ -19,11 +19,18 @@ let firebaseInstance
 export default function createFirebaseInstance(firebase, configs, dispatch) {
   /* istanbul ignore next: Logging is external */
   // Enable Logging based on config (handling instances without i.e RNFirebase)
+  // NOTE: This will be removed in a future version
   if (
+    configs &&
     configs.enableLogging &&
     firebase.database &&
     typeof firebase.database.enableLogging === 'function'
   ) {
+    /* eslint-disable no-console */
+    console.warn(
+      'The enableLogging config option is disabled and will be removed in a future version of react-redux-firebase. Enable logging as part of instance initialization.'
+    )
+    /* eslint-enable no-console */
     firebase.database.enableLogging(configs.enableLogging)
   }
 
@@ -373,6 +380,7 @@ export default function createFirebaseInstance(firebase, configs, dispatch) {
    * (popup | redirect) (only used with provider)
    * @param {string} credentials.email - Credentials for authenticating
    * @param {string} credentials.password - Credentials for authenticating (only used with email)
+   * @param {string} credentials.emailLink - emailLink for authenticating (only used with passwordless sign-in)
    * @returns {Promise} Containing user's auth data
    * @see https://react-redux-firebase.com/docs/auth.html#logincredentials
    * @see https://react-redux-firebase.com/docs/api/firebaseInstance.html#login
@@ -455,6 +463,15 @@ export default function createFirebaseInstance(firebase, configs, dispatch) {
    */
   const verifyPasswordResetCode = (code) =>
     authActions.verifyPasswordResetCode(dispatch, firebase, code)
+
+  /**
+   * Apply verification code
+   * @param {string} code - Verification code
+   * @returns {Promise} Resolves on success
+   * @see https://react-redux-firebase.com/docs/api/firebaseInstance.html#applyactioncode
+   */
+  const applyActionCode = (code) =>
+    authActions.applyActionCode(dispatch, firebase, code)
 
   /**
    * Update user profile on Firebase Real Time Database or
@@ -584,6 +601,7 @@ export default function createFirebaseInstance(firebase, configs, dispatch) {
     resetPassword,
     confirmPasswordReset,
     verifyPasswordResetCode,
+    applyActionCode,
     watchEvent,
     unWatchEvent,
     reloadAuth,

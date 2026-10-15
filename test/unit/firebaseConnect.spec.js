@@ -18,12 +18,12 @@ const getFirebaseWatchers = (firebase) => {
 describe('firebaseConnect', () => {
   it('passes firebase prop to child', () => {
     const { leaf } = createContainer({ hoc: withFirebaseConnect })
-    expect(leaf).to.have.prop('firebase')
+    expect(leaf.prop('firebase')).to.exist
   })
 
   it('passes dispatch prop to child', () => {
     const { leaf } = createContainer({ hoc: withFirebaseConnect })
-    expect(leaf).to.have.prop('dispatch')
+    expect(leaf.prop('dispatch')).to.exist
   })
 
   it('passes through existing props', () => {
@@ -31,7 +31,7 @@ describe('firebaseConnect', () => {
       hoc: withFirebaseConnect,
       additionalComponentProps: { pass: 'through' }
     })
-    expect(leaf).to.have.prop('pass', 'through')
+    expect(leaf.prop('pass')).to.equal('through')
   })
 
   it('enables watchers on mount', async () => {
@@ -199,5 +199,26 @@ describe('firebaseConnect', () => {
   it('sets WrappedComponent static as component which was wrapped', () => {
     const containerPrime = firebaseConnect()(TestContainer)
     expect(containerPrime.wrappedComponent).to.equal(TestContainer)
+  })
+})
+
+describe('firebaseConnect in StrictMode', () => {
+  it('leaves watchers active after StrictMode remounts', async () => {
+    const { dispatch } = createContainer({
+      hoc: withFirebaseConnect,
+      additionalComponentProps: { dynamic: 'start' },
+      strict: true
+    })
+    await sleep()
+    const listenerActions = filter(
+      dispatch.args,
+      (arg) =>
+        arg[0].path === 'test/start' &&
+        /@@reactReduxFirebase\/(UN)?SET_LISTENER/.test(arg[0].type)
+    )
+    expect(listenerActions).to.not.be.empty
+    expect(listenerActions[listenerActions.length - 1][0].type).to.equal(
+      '@@reactReduxFirebase/SET_LISTENER'
+    )
   })
 })
